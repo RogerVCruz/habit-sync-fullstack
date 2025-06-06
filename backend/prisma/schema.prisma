@@ -1,14 +1,116 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  extensions = [pg_trgm, uuid_ossp]
 }
 
-generator client {
-  provider = "prisma-client-js"
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+enum BadgeTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String?
+  avatarUrl    String?
+  level        Int        @default(1)
+  experience   Int        @default(0)
+  streak       Int        @default(0)
+  lastActiveAt DateTime   @default(now())
+  
+  habits       Habit[]
+  achievements UserAchievement[]
+  challenges   ChallengeParticipant[]
+  
+  @@map("users")
+}
+
+model Habit {
+  id          String     @id @default(uuid())
+  name        String     @db.VarChar(100)
+  description String?
+  frequency   HabitFrequency @default(DAILY)
+  targetDays  Int?       @default(1)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  completions HabitCompletion[]
+  streak      Int        @default(0)
+  bestStreak  Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@index([userId, frequency])
+  @@map("habits")
+}
+
+model HabitCompletion {
+  id        String   @id @default(uuid())
+  habitId   String
+  habit     Habit    @relation(fields: [habitId], references: [id])
+  date      DateTime @default(now())
+  isSkipped Boolean  @default(false)
+  
+  @@unique([habitId, date])
+  @@map("habit_completions")
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  badgeTier   BadgeTier
+  points      Int
+  iconUrl     String
+  
+  users       UserAchievement[]
+  @@map("achievements")
+}
+
+model UserAchievement {
+  userId        String
+  user          User       @relation(fields: [userId], references: [id])
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  unlockedAt    DateTime   @default(now())
+  
+  @@id([userId, achievementId])
+  @@map("user_achievements")
+}
+
+model Challenge {
+  id          String     @id @default(uuid())
+  name        String
+  description String
+  startDate   DateTime
+  endDate     DateTime
+  reward      Int
+  participants ChallengeParticipant[]
+  
+  @@map("challenges")
+}
+
+model ChallengeParticipant {
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  progress    Int       @default(0)
+  
+  @@id([userId, challengeId])
+  @@map("challenge_participants")
 }
