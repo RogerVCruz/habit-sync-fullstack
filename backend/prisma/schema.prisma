@@ -114,3 +114,4 @@ model ChallengeParticipant {
   @@id([userId, challengeId])
   @@map("challenge_participants")
 }
+
